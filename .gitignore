@@ -1,0 +1,60 @@
+/bin/
+/results/
+.DS_Store
+
+# Compiler, sanitizer, profiling and debug outputs (the Makefile builds into /bin/)
+*.dSYM/
+*.o
+*.test
+*.prof
+*.pprof
+/coverage.out
+/cover.out
+/trace.out
+*.profraw
+*.profdata
+*.gcno
+*.gcda
+/core
+/core.[0-9]*
+
+# Delivered archives and extracted patches (root only), plus patch leftovers
+/*.zip
+/*.patch
+*.orig
+*.rej
+
+# Local backups, editor and scratch files
+*.bak
+*~
+*.swp
+*.swo
+.idea/
+.vscode/
+/scratch/
+/tmp/
+
+# Claude Code local settings and local-only instructions
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Local environment, credentials and keys (public examples stay committable)
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Model weights and caches
+/models/
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.onnx
+.cache/
+__pycache__/
+.venv/
