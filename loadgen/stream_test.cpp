@@ -49,4 +49,32 @@ int main() {
     assert(m.backup_before_signal == 1);
     auto broken_backup = first_backup_after({{5, "backup", 10400, 400}}, 10000); // Content counts even if stream later broke.
     assert(broken_backup.id == 5 && broken_backup.latency_ms == 400);
+
+    // vLLM /metrics parsing: exact family names, sum counts across engines, max KV usage.
+    auto g = parse_vllm_metrics(
+        "# HELP vllm:num_requests_running Number of requests in model execution batches.\n"
+        "# TYPE vllm:num_requests_running gauge\n"
+        "vllm:num_requests_running{engine=\"0\",model_name=\"Qwen/Qwen2.5-0.5B-Instruct\"} 3.0\n"
+        "vllm:num_requests_running{engine=\"1\",model_name=\"a b}c\"} 2\n"
+        "vllm:num_requests_waiting{engine=\"0\"} 7.0\n"
+        "vllm:num_requests_waiting_by_reason{engine=\"0\",reason=\"capacity\"} 99\n"
+        "vllm:kv_cache_usage_perc{engine=\"0\"} 0.25\n"
+        "vllm:kv_cache_usage_perc{engine=\"1\"} 0.5\r\n"
+        "vllm:num_preemptions_total{engine=\"0\"} 4 1700000000000\n"
+        "vllm:num_requests_running_garbage 1e309\n"
+        "vllm:num_requests_running{engine=\"2\"} NaN\n");
+    assert(g.running && *g.running == 5);
+    assert(g.waiting && *g.waiting == 7);
+    assert(g.kv_cache_usage && *g.kv_cache_usage == 0.5);
+    assert(g.preemptions_total && *g.preemptions_total == 4);
+    auto sim_page = parse_vllm_metrics("vllm:num_requests_running 1\n");  // Simulator-style page.
+    assert(sim_page.running && !sim_page.waiting && !sim_page.kv_cache_usage && !sim_page.preemptions_total);
+    auto legacy = parse_vllm_metrics("vllm:gpu_cache_usage_perc{engine=\"0\"} 0.75\n");
+    assert(legacy.kv_cache_usage && *legacy.kv_cache_usage == 0.75);
+    auto empty = parse_vllm_metrics("404 page not found\n");
+    assert(!empty.running && !empty.waiting && !empty.kv_cache_usage);
+
+    assert(percentile({}, .95) == -1);
+    assert(percentile({5, 1, 3, 2, 4}, .5) == 3 && percentile({5, 1, 3, 2, 4}, 1.0) == 5);
+    assert(percentile({5, 1, 3, 2, 4}, 0) == 1);
 }

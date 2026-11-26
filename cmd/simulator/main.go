@@ -7,6 +7,7 @@ import (
 	"inferenceplatform/internal/gateway"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -19,6 +20,12 @@ func main() {
 		log.Fatal("negative delay")
 	}
 	mux := http.NewServeMux()
+	var running atomic.Int64
+	// Minimal vLLM-style metrics: only the running-request gauge (other vLLM families are absent).
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		fmt.Fprintf(w, "# TYPE vllm:num_requests_running gauge\nvllm:num_requests_running{engine=\"0\"} %d\n", running.Load())
+	})
 	mux.HandleFunc("POST "+gateway.Path, func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Model     string
@@ -29,6 +36,8 @@ func main() {
 			http.Error(w, "expected stream=true and max_tokens from 1 to 1024", 400)
 			return
 		}
+		running.Add(1)
+		defer running.Add(-1)
 		w.Header().Set("Content-Type", "text/event-stream")
 		flush := http.NewResponseController(w).Flush
 		event := func(delta map[string]string, reason any) bool {

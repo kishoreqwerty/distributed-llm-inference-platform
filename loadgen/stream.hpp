@@ -1,5 +1,9 @@
 #pragma once
+#include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdlib>
+#include <optional>
 #include <chrono>
 #include <string>
 #include <string_view>
@@ -109,4 +113,52 @@ inline FailoverMeasure first_backup_after(const std::vector<ContentEvent>& event
     }
     if (m.id >= 0) m.latency_ms = m.first_content_ms - signal_ms;
     return m;
+}
+
+// Worker gauges parsed from a vLLM Prometheus /metrics page. Absent families stay empty
+// ("unavailable"). Counts are summed across label sets (e.g. engines); KV usage takes the max.
+struct WorkerGauges {
+    std::optional<double> running, waiting, kv_cache_usage, preemptions_total;
+};
+
+inline WorkerGauges parse_vllm_metrics(std::string_view text) {
+    WorkerGauges g;
+    auto add = [](std::optional<double>& slot, double v, bool use_max) {
+        slot = !slot ? v : use_max ? std::max(*slot, v) : *slot + v;
+    };
+    while (!text.empty()) {
+        auto eol = text.find('\n');
+        auto line = text.substr(0, eol);
+        text = eol == std::string_view::npos ? std::string_view{} : text.substr(eol + 1);
+        if (line.empty() || line.front() == '#') continue;
+        auto name_end = line.find_first_of("{ \t");
+        if (name_end == std::string_view::npos) continue;
+        auto name = line.substr(0, name_end);
+        auto rest = line.substr(name_end);
+        if (!rest.empty() && rest.front() == '{') {
+            auto close = rest.rfind('}');
+            if (close == std::string_view::npos) continue;
+            rest = rest.substr(close + 1);
+        }
+        auto start = rest.find_first_not_of(" \t");
+        if (start == std::string_view::npos) continue;
+        rest = rest.substr(start);
+        std::string token(rest.substr(0, rest.find_first_of(" \t\r")));
+        char* end = nullptr;
+        double v = std::strtod(token.c_str(), &end);
+        if (token.empty() || end != token.c_str() + token.size() || !std::isfinite(v)) continue;
+        if (name == "vllm:num_requests_running") add(g.running, v, false);
+        else if (name == "vllm:num_requests_waiting") add(g.waiting, v, false);
+        else if (name == "vllm:kv_cache_usage_perc" || name == "vllm:gpu_cache_usage_perc") add(g.kv_cache_usage, v, true);
+        else if (name == "vllm:num_preemptions_total") add(g.preemptions_total, v, false);
+    }
+    return g;
+}
+
+// Nearest-rank percentile of an unsorted sample; -1 when empty.
+inline double percentile(std::vector<double> values, double q) {
+    if (values.empty()) return -1;
+    std::sort(values.begin(), values.end());
+    auto rank = static_cast<size_t>(std::ceil(q * values.size()));
+    return values.at(rank == 0 ? 0 : rank - 1);
 }
