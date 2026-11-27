@@ -16,7 +16,9 @@ The project asks a practical serving question: **when the fast worker is busy, s
 
 ## Architecture
 
-![Streaming inference architecture showing the Mac gateway, priority queues, Mac and ROG workers, and benchmark outputs](docs/images/architecture.png)
+<p align="center">
+  <a href="docs/images/architecture.png"><img src="docs/images/architecture.png" width="400" alt="Streaming inference architecture showing the Mac gateway, priority queues, Mac and ROG workers, and benchmark outputs"></a>
+</p>
 
 **Scheduling chooses which request goes next.** The gateway accepts OpenAI-compatible streaming chat requests. A caller can set `X-Request-Priority: urgent`. Under FIFO, queued requests start in arrival order. Under priority scheduling, a waiting urgent request can go ahead of waiting background work. Active streams keep their slots until completion or disconnect. When the bounded queue fills, the gateway returns HTTP 429. Sustained urgent traffic can increase background wait times.
 
@@ -71,6 +73,7 @@ Round-robin completed the most requests in each overload trial. Load-aware used 
 - **Tunnel disconnect under traffic.** Round-robin received 1,800 requests over 90 seconds. Between the samples at +27 s and +59 s, the Mac dispatch count increased by **644** while the ROG count stayed fixed. At +60 s the ROG was healthy and its count increased again. The run recorded **zero rejections**, one interrupted ROG background stream, and **151.4 ms** urgent p95. The one-second samples show the recovery sequence. They give only approximate transition times.
 
 ### Reading the metrics
+
 
 - **Time to first token (TTFT)** runs from client dispatch to the first non-empty content chunk. The initial role-only event is skipped when identifying the first token. p95 is calculated over successful requests.
 - **Urgent target attainment** divides successful urgent requests with TTFT within 500 ms by **all offered urgent requests**. Rejections and failures count as misses. This makes the overload comparison meaningful even when successful-request p95 stays low.
