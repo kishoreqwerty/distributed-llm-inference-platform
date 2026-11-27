@@ -1,0 +1,21 @@
+{
+  "health_path": "/health",
+  "health_interval_ms": 500,
+  "ewma_alpha": 0.1,
+  "workers": [
+    {
+      "name": "mac",
+      "url": "http://127.0.0.1:8000",
+      "slots": 4,
+      "urgent":     {"first_token_ms": 30.2, "full_ms": 38.4},
+      "background": {"first_token_ms": 32.4, "full_ms": 63.6}
+    },
+    {
+      "name": "rog",
+      "url": "http://127.0.0.1:18001",
+      "slots": 1,
+      "urgent":     {"first_token_ms": 173.3, "full_ms": 274.6},
+      "background": {"first_token_ms": 177.7, "full_ms": 476.1}
+    }
+  ]
+}

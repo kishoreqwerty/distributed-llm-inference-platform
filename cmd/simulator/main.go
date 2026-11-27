@@ -26,6 +26,7 @@ func main() {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		fmt.Fprintf(w, "# TYPE vllm:num_requests_running gauge\nvllm:num_requests_running{engine=\"0\"} %d\n", running.Load())
 	})
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {})
 	mux.HandleFunc("POST "+gateway.Path, func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Model     string
